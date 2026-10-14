@@ -24,8 +24,8 @@ export async function loadRoster() {
       const username = acc.fields['Fansly username'] || '';
       const managedBy = (acc.fields['Managed by'] || '').trim();
       const status = acc.fields.Status || '';
-      // Skip offboarded / unassigned
-      if (!managedBy || managedBy === '(none)' || managedBy.toLowerCase() === 'none' || managedBy.toLowerCase() === 'offboarded') {
+      // ONLY models assigned to Bot — ignore everyone else (other managers, unassigned, offboarded)
+      if (managedBy.toLowerCase() !== 'bot') {
         return null;
       }
       const chatter = chatterByName.get(name);
