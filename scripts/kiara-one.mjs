@@ -5,10 +5,17 @@ import { google } from 'googleapis';
 
 const TOKEN = fs.readFileSync('data/secrets/airtable-token.txt', 'utf8').trim();
 const SA = JSON.parse(fs.readFileSync('data/secrets/google-service-account.json', 'utf8'));
-const FOLDER = '1KyoYeWom-lsVzPgWVEHy24CVRL3K3C0p';
 const ACCOUNT_ID = 'receOFDGZ0s5LgA9T';
 const OPS = 'appHWOLnUidK3K9dA';
 const TOS_BASE = 'appsAEWeNQSCYLDpl';
+
+function extractFolderId(link) {
+  if (!link) return null;
+  const s = String(link).trim();
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s) && !s.includes('/')) return s;
+  const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/) || s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
 
 async function airtable(method, url, body) {
   const res = await fetch(url, {
@@ -28,6 +35,12 @@ function run(cmd, args) {
 }
 
 async function main() {
+  // Get Drive folder from the new "Drive link (Bot)" column
+  const accData = await airtable('GET', `https://api.airtable.com/v0/${OPS}/Accounts/${ACCOUNT_ID}`);
+  const driveLink = accData.fields['Drive link (Bot)'] || '';
+  const FOLDER = extractFolderId(driveLink) || '1KyoYeWom-lsVzPgWVEHy24CVRL3K3C0p';
+  console.log('Using Drive folder:', FOLDER);
+
   // List unused TOS
   const tosData = await airtable('GET', `https://api.airtable.com/v0/${TOS_BASE}/Table%201`);
   const tosList = tosData.records.filter(r => r.fields.TOS);

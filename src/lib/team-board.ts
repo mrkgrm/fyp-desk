@@ -31,7 +31,9 @@ export async function loadRoster() {
       const chatter = chatterByName.get(name);
       const age = chatter?.fields.Age;
       const under21 = isUnderAge(age);
-      const folderId = plan.folders[acc.id];
+      // Prefer the new "Drive link (Bot)" column; fall back to old plan mapping
+      const driveLink = acc.fields['Drive link (Bot)'] || '';
+      const folderId = extractFolderId(driveLink) || plan.folders[acc.id];
       let filesLeft = 0;
       if (folderId) {
         try {
@@ -82,4 +84,15 @@ export async function loadRoster() {
   }));
 
   return { roster, managers, tosCount: tosRecords.length, botPosts, plan };
+}
+
+/** Extract Google Drive folder ID from a link or raw ID */
+function extractFolderId(link: string): string | null {
+  if (!link) return null;
+  const s = String(link).trim();
+  // Already a raw ID
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(s) && !s.includes('/')) return s;
+  // Common Drive URL patterns
+  const m = s.match(/\/folders\/([a-zA-Z0-9_-]+)/) || s.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
 }
