@@ -18,12 +18,16 @@ export async function loadRoster() {
 
   const chatterByName = new Map(chatters.map((c: any) => [c.fields['Category name'] || c.fields.Name, c]));
 
-  const roster = await Promise.all(
+  const rawRoster = await Promise.all(
     accounts.map(async (acc: any) => {
       const name = acc.fields.Name || '';
       const username = acc.fields['Fansly username'] || '';
-      const managedBy = acc.fields['Managed by'] || '(none)';
+      const managedBy = (acc.fields['Managed by'] || '').trim();
       const status = acc.fields.Status || '';
+      // Skip offboarded / unassigned
+      if (!managedBy || managedBy === '(none)' || managedBy.toLowerCase() === 'none' || managedBy.toLowerCase() === 'offboarded') {
+        return null;
+      }
       const chatter = chatterByName.get(name);
       const age = chatter?.fields.Age;
       const under21 = isUnderAge(age);
@@ -60,6 +64,8 @@ export async function loadRoster() {
       };
     })
   );
+
+  const roster = rawRoster.filter(Boolean) as any[];
 
   const managers = roster.reduce((acc: any, m) => {
     const key = m.managedBy || '(none)';
