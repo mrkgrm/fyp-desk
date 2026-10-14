@@ -6,8 +6,6 @@ import { loadRoster } from '@/lib/team-board';
 import BoardClient from './BoardClient';
 import LoginForm from './LoginForm';
 
-export const dynamic = 'force-dynamic';
-
 const PASS_PATH = path.join(process.cwd(), 'data/secrets/board-password.txt');
 const PASSWORD = process.env.TEAM_BOARD_PASSWORD || (fs.existsSync(PASS_PATH) ? fs.readFileSync(PASS_PATH, 'utf8').trim() : 'FypBoard-Kiara');
 
