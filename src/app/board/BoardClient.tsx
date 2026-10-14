@@ -12,6 +12,8 @@ export default function BoardClient({ data }: { data: any }) {
   const [filter, setFilter] = useState('All');
   const [adminNotes, setAdminNotes] = useState('');
   const [scheduling, setScheduling] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const filtered = roster.filter((r: any) => {
     if (filter === 'Bot') return r.managedBy === 'Bot';
@@ -19,6 +21,18 @@ export default function BoardClient({ data }: { data: any }) {
     if (filter === 'Need content') return r.needContent;
     return true;
   });
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  function selectAll() {
+    setSelectedIds(filtered.map((r: any) => r.id));
+  }
+
+  function clearSelection() {
+    setSelectedIds([]);
+  }
 
   async function saveSchedule() {
     await fetch('/api/board/plan', {
@@ -119,6 +133,24 @@ export default function BoardClient({ data }: { data: any }) {
             </button>
           </div>
 
+          <section className="bg-zinc-900 p-4 rounded flex flex-wrap gap-3 items-center">
+            <span className="font-semibold">Create content for:</span>
+            <button onClick={selectAll} className="bg-zinc-700 px-3 py-1 rounded text-sm">Select all</button>
+            <button onClick={clearSelection} className="bg-zinc-700 px-3 py-1 rounded text-sm">Clear</button>
+            <span className="text-sm text-zinc-400">{selectedIds.length} selected</span>
+            <button
+              disabled={creating || selectedIds.length === 0}
+              onClick={async () => {
+                setCreating(true);
+                alert(`Would create content for: ${selectedIds.map(id => roster.find((r: any) => r.id === id)?.name).join(', ') || 'none'}\n\n(Run node scripts/bot-render.mjs on the server to actually render.)`);
+                setCreating(false);
+              }}
+              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded font-semibold"
+            >
+              {creating ? 'Creating…' : `Create content (${selectedIds.length || 'none'})`}
+            </button>
+          </section>
+
           <section>
             <h2 className="text-xl mb-2">Who manages who</h2>
             <div className="flex gap-4 flex-wrap">
@@ -159,14 +191,23 @@ export default function BoardClient({ data }: { data: any }) {
               ))}
             </div>
             <table className="w-full text-sm">
-              <thead><tr className="text-left border-b border-zinc-800"><th>Model</th><th>Username</th><th>Managed by</th><th>Status</th><th>Clips left</th><th>TOS left</th><th>Flag</th></tr></thead>
+              <thead><tr className="text-left border-b border-zinc-800"><th></th><th>Model</th><th>Username</th><th>Managed by</th><th>Status</th><th>Clips left</th><th>TOS left</th><th>Flag</th></tr></thead>
               <tbody>
                 {filtered.map((r: any) => (
                   <tr
                     key={r.id}
-                    className={`border-b border-zinc-900 hover:bg-zinc-900 cursor-pointer ${r.needContent ? 'bg-red-950/40 text-red-200' : ''}`}
+                    className={`border-b border-zinc-900 hover:bg-zinc-900 cursor-pointer ${r.needContent ? 'bg-red-950/40 text-red-200' : ''} ${selectedIds.includes(r.id) ? 'ring-1 ring-purple-500' : ''}`}
                     onClick={() => setSelected(r)}
                   >
+                    <td className="pr-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(r.id)}
+                        onChange={() => toggleSelect(r.id)}
+                        onClick={e => e.stopPropagation()}
+                        className="accent-purple-500"
+                      />
+                    </td>
                     <td>{r.name}</td><td>{r.username}</td><td>{r.managedBy}</td><td>{r.status}</td>
                     <td>{r.filesLeft}</td><td>{r.tosLeft}</td><td className={r.needContent ? 'text-red-400 font-semibold' : ''}>{r.flag}</td>
                   </tr>
