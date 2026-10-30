@@ -8,14 +8,21 @@
     "start": "next start",
     "lint": "eslint",
     "board": "node scripts/team-board-server.mjs",
-    "kiara": "node scripts/kiara-one.mjs"
+    "kiara": "node scripts/kiara-one.mjs",
+    "worker": "node scripts/autopost.mjs",
+    "sync": "tsx scripts/supabase-sync.mjs all",
+    "supabase:setup": "node scripts/supabase-setup.mjs"
   },
   "dependencies": {
-    "next": "16.4.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "ai": "^6.0.309",
+    "airtable": "^0.12.2",
     "googleapis": "^140.0.1",
-    "airtable": "^0.12.2"
+    "next": "16.4.0",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

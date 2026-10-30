@@ -1,0 +1,32 @@
+name: Sales report
+
+on:
+  schedule:
+    # Philippine time is UTC+8. Each slot retries twice if GitHub starts late.
+    - cron: '5,20,35 16 * * *' # 00:05, 00:20, 00:35 Manila
+    - cron: '0,15,30 0 * * *' # 08:00, 08:15, 08:30 Manila
+    - cron: '0,15,30 8 * * *' # 16:00, 16:15, 16:30 Manila
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Close the shift and send the sales report
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ONLYFANS_API_KEY: ${{ secrets.ONLYFANS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+          REPORT_ONLY: '1'
+        run: |
+          node --import tsx scripts/supabase-sync.mjs auto
+          node --import tsx scripts/supabase-sync.mjs auto
