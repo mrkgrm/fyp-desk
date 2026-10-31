@@ -2,10 +2,11 @@ name: Sales report
 
 on:
   schedule:
-    # Philippine time is UTC+8. Each slot retries twice if GitHub starts late.
-    - cron: '5,20,35 16 * * *' # 00:05, 00:20, 00:35 Manila
-    - cron: '0,15,30 0 * * *' # 08:00, 08:15, 08:30 Manila
-    - cron: '0,15,30 8 * * *' # 16:00, 16:15, 16:30 Manila
+    # Philippine time is UTC+8. GitHub often starts these late or skips one,
+    # so each slot is checked every 15 minutes for the following three hours.
+    - cron: '*/15 16-18 * * *' # 00:00–02:45 Manila
+    - cron: '*/15 0-2 * * *' # 08:00–10:45 Manila
+    - cron: '*/15 8-10 * * *' # 16:00–18:45 Manila
   workflow_dispatch:
 
 jobs:

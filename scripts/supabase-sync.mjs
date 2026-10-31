@@ -156,21 +156,46 @@ loadEnv();
 const state = await hydrateState();
 const asked = process.argv[2] || 'auto';
 let job = asked === 'auto' ? dueJob(state) : asked;
-if (process.env.REPORT_ONLY === '1' && job && !String(job).startsWith('earnings:') && !String(job).startsWith('telegram:')) job = '';
-if (!job) process.exit(0);
+if (process.env.REPORT_ONLY === '1' && job && job !== 'refresh' && !String(job).startsWith('earnings:') && !String(job).startsWith('telegram:')) job = '';
+
+const REFRESH_ID = 'shift-refresh';
+
+async function claimRefresh() {
+  const client = await reportDb();
+  const now = new Date().toISOString();
+  const taken = await client.from('report_sends').update({ status: 'claimed', updated_at: now }).eq('id', REFRESH_ID).eq('status', 'queued').select('id');
+  if (taken.error) throw new Error(taken.error.message);
+  return Boolean(taken.data?.length);
+}
+
+async function finishRefresh(status) {
+  const client = await reportDb();
+  const { error } = await client.from('report_sends').update({ status, updated_at: new Date().toISOString() }).eq('id', REFRESH_ID);
+  if (error) throw new Error(error.message);
+}
+
+const lock = path.join('data', 'supabase-sync.lock');
+const lockHeld = fs.existsSync(lock) && Date.now() - fs.statSync(lock).mtimeMs < 20 * 60 * 1000;
+if (!job && process.env.REPORT_ONLY !== '1' && !lockHeld && await claimRefresh()) job = 'refresh';
+if (!job || lockHeld) process.exit(0);
 const ownedId = reportId(job);
 if (ownedId && (state.reports || {})[ownedId]) process.exit(0);
 if (ownedId && !(await claimReport(ownedId))) process.exit(0);
-
-const lock = path.join('data', 'supabase-sync.lock');
 if (fs.existsSync(lock) && Date.now() - fs.statSync(lock).mtimeMs < 20 * 60 * 1000) process.exit(0);
 fs.mkdirSync('data', { recursive: true });
 fs.writeFileSync(lock, String(Date.now()));
 try {
-  const { syncJob, syncPostMetrics, syncSlot } = await import('../src/lib/supabase-sync.ts');
-  if (job === 'metrics') await syncPostMetrics();
-  else if (String(job).startsWith('slot:')) await syncSlot(Number(job.slice(5)));
-  else if (String(job).startsWith('earnings:')) {
+  if (job === 'refresh') {
+    const { refreshOpenShift } = await import('../src/lib/shift-earnings.ts');
+    const { refreshOpenSubs } = await import('../src/lib/shift-subs.ts');
+    await refreshOpenShift();
+    await refreshOpenSubs();
+    await finishRefresh('sent');
+  } else if (job === 'metrics' || String(job).startsWith('slot:')) {
+    const { syncPostMetrics, syncSlot } = await import('../src/lib/supabase-sync.ts');
+    if (job === 'metrics') await syncPostMetrics();
+    else await syncSlot(Number(job.slice(5)));
+  } else if (String(job).startsWith('earnings:')) {
     const slot = Number(job.slice('earnings:'.length));
     const { closeShiftEarnings } = await import('../src/lib/shift-earnings.ts');
     const { closeShiftSubs } = await import('../src/lib/shift-subs.ts');
@@ -183,11 +208,15 @@ try {
     const slot = Number(job.slice('telegram:'.length));
     const { sendOwnerUpdate } = await import('../src/lib/telegram-desk.ts');
     await sendOwnerUpdate(slot);
-  } else await syncJob(job === 'all' ? 'all' : job);
-  await mark(job);
+  } else {
+    const { syncJob } = await import('../src/lib/supabase-sync.ts');
+    await syncJob(job === 'all' ? 'all' : job);
+  }
+  if (job !== 'refresh') await mark(job);
   fs.rmSync(path.join('data', 'supabase-read-cache.json'), { force: true });
   console.error(`Supabase ${job} sync finished`);
 } catch (error) {
+  if (job === 'refresh') await finishRefresh('error').catch(() => {});
   if (ownedId) await releaseReport(ownedId).catch(() => {});
   console.error(error instanceof Error ? error.stack || error.message : error);
   process.exitCode = 1;
